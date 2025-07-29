@@ -7,7 +7,6 @@ import WorkflowBuilderPage from './pages/WorkflowBuilderPage'
 import TemplatesPage from './pages/TemplatesPage'
 import AuthModal from './components/AuthModal'
 import { UserProvider } from './context/UserContext'
-import './App.css'
 
 function App() {
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -15,7 +14,7 @@ function App() {
 
   return (
     <UserProvider>
-      <div className="App">
+      <div className="min-h-screen bg-gray-50">
         <Navbar 
           onShowAuth={(mode) => {
             setAuthMode(mode)
