@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import { Mic, MicOff, Volume2, Zap, MessageCircle } from 'lucide-react'
 import OpenAI from 'openai'
 
 const VoiceControl = ({ onVoiceCommand }) => {
   const [isRecording, setIsRecording] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [showTooltip, setShowTooltip] = useState(false)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
+  const tooltipTimeoutRef = useRef(null)
 
   const openai = new OpenAI({
     apiKey: "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",
@@ -79,22 +82,29 @@ const VoiceControl = ({ onVoiceCommand }) => {
     const recognition = new SpeechRecognition()
     
     recognition.continuous = false
-    recognition.interimResults = false
+    recognition.interimResults = true
     recognition.lang = 'en-US'
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript
-      onVoiceCommand(transcript)
-      setIsRecording(false)
+      const currentTranscript = event.results[0][0].transcript
+      setTranscript(currentTranscript)
+      
+      if (event.results[0].isFinal) {
+        onVoiceCommand(currentTranscript)
+        setIsRecording(false)
+        setTranscript('')
+      }
     }
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error)
       setIsRecording(false)
+      setTranscript('')
     }
 
     recognition.onend = () => {
       setIsRecording(false)
+      setTranscript('')
     }
 
     recognition.start()
@@ -117,22 +127,98 @@ const VoiceControl = ({ onVoiceCommand }) => {
     }
   }
 
+  const handleMouseEnter = () => {
+    if (tooltipTimeoutRef.current) {
+      clearTimeout(tooltipTimeoutRef.current)
+    }
+    setShowTooltip(true)
+  }
+
+  const handleMouseLeave = () => {
+    tooltipTimeoutRef.current = setTimeout(() => {
+      setShowTooltip(false)
+    }, 300)
+  }
+
   return (
     <div className="voice-control-panel">
-      <button
-        onClick={handleVoiceClick}
-        className={`voice-button ${isRecording ? 'recording' : ''}`}
-        title={isRecording ? 'Click to stop recording' : 'Click to start voice command'}
-      >
-        {isRecording ? <MicOff size={24} /> : <Mic size={24} />}
-      </button>
-      
+      {/* Main Voice Button */}
+      <div className="relative">
+        <button
+          onClick={handleVoiceClick}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={`voice-button group ${isRecording ? 'recording' : ''}`}
+          title={isRecording ? 'Click to stop recording' : 'Click to start voice command'}
+        >
+          {isRecording ? (
+            <div className="relative">
+              <MicOff size={24} />
+              <div className="absolute inset-0 rounded-full bg-red-500 opacity-20 animate-ping"></div>
+            </div>
+          ) : (
+            <Mic size={24} />
+          )}
+        </button>
+
+        {/* Pulse Animation Ring */}
+        {isRecording && (
+          <div className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping opacity-75"></div>
+        )}
+      </div>
+
+      {/* Recording Status Panel */}
       {isRecording && (
-        <div className="absolute bottom-20 right-0 bg-white rounded-lg p-3 shadow-lg border">
-          <p className="text-sm font-medium text-red-600">🎤 Listening...</p>
-          <p className="text-xs text-gray-600">Say your command</p>
+        <div className="absolute bottom-20 right-0 bg-white rounded-xl p-4 shadow-strong border border-gray-200 min-w-[280px]">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            <p className="text-sm font-semibold text-gray-900">Listening...</p>
+            <Volume2 size={16} className="text-gray-400" />
+          </div>
+          
+          {transcript && (
+            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700 italic">"{transcript}"</p>
+            </div>
+          )}
+          
+          <div className="text-xs text-gray-500 space-y-1">
+            <p>💬 Try: "Add text generator"</p>
+            <p>🤖 Try: "Add chatbot"</p>
+            <p>💾 Try: "Save workflow"</p>
+          </div>
         </div>
       )}
+
+      {/* Help Tooltip */}
+      {showTooltip && !isRecording && (
+        <div className="absolute bottom-20 right-0 bg-gray-900 text-white rounded-lg p-3 shadow-strong min-w-[240px]">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap size={16} className="text-yellow-400" />
+            <p className="text-sm font-medium">Voice Commands</p>
+          </div>
+          <div className="text-xs space-y-1 opacity-90">
+            <p>🎤 Click to start voice control</p>
+            <p>🗣️ Speak naturally to add components</p>
+            <p>⚡ Works with Web Speech API</p>
+          </div>
+          
+          {/* Tooltip Arrow */}
+          <div className="absolute bottom-0 right-6 transform translate-y-full">
+            <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="absolute bottom-20 left-0 transform -translate-x-full mr-4 space-y-2">
+        <button
+          className="w-12 h-12 bg-white border border-gray-200 rounded-full shadow-soft hover:shadow-medium transition-all duration-200 flex items-center justify-center group"
+          title="Quick Chat"
+        >
+          <MessageCircle size={20} className="text-gray-600 group-hover:text-primary-500" />
+        </button>
+      </div>
     </div>
   )
 }
